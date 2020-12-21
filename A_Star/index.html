@@ -1,0 +1,304 @@
+<meta charset="UTF-8">
+<html>
+<title>Fast A* Algorithm</title>
+<style type="text/css">
+	body {
+        background:none transparent;
+    }
+	.bluebox {
+		width:30px;
+		height:30px;
+		border:2px solid black;
+		background-color: #0000ff;
+		display: inline-block;
+		overflow: hidden;
+		color: white;
+	}
+	.greenbox {
+		width:30px;
+		height:30px;
+		border:2px solid black;
+		background-color: #00ff00;
+		display: inline-block;
+		overflow: hidden;
+	}
+	.redbox {
+		width:30px;
+		height:30px;
+		border:2px solid black;
+		background-color: #ff0000;
+		display: inline-block;
+		overflow: hidden;
+	}
+	.whitebox {
+		width:30px;
+		height:30px;
+		border:2px solid black;
+		background-color: #ffffff;
+		display: inline-block;
+		overflow: hidden;
+	}
+	.blackbox {
+		width:30px;
+		height:30px;
+		border:2px solid black;
+		background-color: #000000;
+		display: inline-block;
+		overflow: hidden;
+	}
+</style>
+<body>
+	<div id="maindiv">Please enable javascript</div>
+	<button onclick="pathfind();">Pathfind</button> <button onclick="animatePathfind();">Animate Pathfind</button> <button onclick="pathstep();draw();">Pathfind Single Step</button><button onclick="setup();">Generate New Screen</button><br>
+	<input type="checkbox" id="diag" onclick="setup();">Allow Diagonals<input type="checkbox" id="rando" onclick="setup();">Algorithmic Maze Generation
+	<script>
+		hasVec = (array, element) => {
+			if(array == null || element == null)
+				return false;
+			if(array[element.y][element.x] != null)
+				return true;
+			return false;
+		}
+
+		vecsort = (a,b) => {
+			if(d_only) {
+				return table[a.y][a.x].d2-table[b.y][b.x].d2;
+			} else {
+				return (table[a.y][a.x].d2 + (table[a.y][a.x].h2))-(table[b.y][b.x].d2+(table[b.y][b.x].h2));
+			}
+		}
+
+		isWall = (e) => {
+			return table[e.y][e.x].val == 3 || table[e.y][e.x].val == 1;
+		}
+
+		const delay = ms => new Promise(res => setTimeout(res, ms));
+
+		goal = {x:24, y:24};
+		start = {x:0, y:0};
+		table = [];
+		openset = [];
+		closedset = [];
+		cameFrom = [];
+		width = 25;
+		height = 25;
+		path = null;
+		timer = null;
+		nopath = false;
+
+		diag = false;
+		d_only = false;
+		setupat = 0;
+
+		setup = async () => {
+			var at = setupat+1;
+			setupat=at;
+			//take values from check
+			diag = document.getElementById("diag").checked;
+			rando = document.getElementById("rando").checked;
+			//setup table and display
+			maindiv = document.getElementById("maindiv");
+			maindiv.innerHTML="";
+			table = [];
+			goal={x:width-1, y:height-1, val: 0, d2: 0};
+			start={x:0, y:0, h2:0, val: 0, d2: (Math.pow(goal.x, 2) + Math.pow(goal.y, 2))};
+			openset=[start];
+			closedset = [];
+			cameFrom = [];
+			path = null;
+			nopath = false;
+			if(timer != null) clearInterval(timer);
+			timer = null;
+
+			for(var i = 0; i < height; i++) {
+				table[i]=[];
+				closedset[i] = [];
+				cameFrom[i] = [];
+				for(var j = 0; j < width; j++) {
+					var temp = document.createElement("div");
+					temp.setAttribute("class", "whitebox");
+					temp.id="cell"+j+","+i;
+					maindiv.appendChild(temp);
+					table[i][j]={val: 3, x:j, y:i, d2: (Math.pow(goal.x-j, 2) + Math.pow(goal.y-i, 2))};
+				}
+				maindiv.appendChild(document.createElement("br"));
+			}
+
+			if(rando) {
+				gridwidth = width/2;
+				gridheight = height/2;
+				blobs = [];
+
+				for(var i = 0; i < gridheight; i++) {
+					for(var j = 0; j < gridwidth; j++) {
+						blobs.push([{x: j, y: i}]);
+						table[i*2][j*2].val=0;
+					}
+				}
+
+				while(blobs.length > 1) {
+					var index = Math.floor(Math.random()*blobs.length);
+					var blob = blobs[index];
+					var index1 = Math.floor(Math.random()*blob.length);
+					var point1 = blob[index1];
+					var point2 = {x: point1.x, y: point1.y};
+					var dir = Math.floor(Math.random()*4);
+					switch(dir) {
+						case 0:
+							if(point1.x > 0)
+								point2.x--;
+							else continue;
+						break;
+						case 1:
+							if(point1.x < gridwidth-1)
+								point2.x++;
+							else continue;
+						break;
+						case 2:
+							if(point1.y > 0)
+								point2.y--;
+							else continue;
+						break;
+						case 3:
+							if(point1.y < gridheight-1)
+								point2.y++;
+							else continue;
+						break;
+					}
+					//console.log(point1, point2);
+					if(blob.findIndex(x=>x.x==point2.x&&x.y==point2.y)>=0)
+						continue;
+					table[point1.y+point2.y][point1.x+point2.x].val=0;
+					var otherblob = blobs.findIndex(x1=>x1.findIndex(x=>x.x==point2.x&&x.y==point2.y)>=0);
+					if(otherblob == index || otherblob < 0)
+						continue;
+					tempblob = blobs[otherblob];
+					for(var i = 0; i < tempblob.length; i++) {
+						blob = blob.concat(tempblob[i]);
+					}
+					blobs[index]=blob;
+					blobs.splice(otherblob, 1);
+					draw();
+					await delay(5);
+				}
+
+			} else {
+				for(var i = 0; i < height; i++) {
+					for(var j = 0; j < width; j++) {
+						table[i][j].val=Math.random()<0.25?3:0;
+						draw();
+						await delay(2);
+						if(setupat != at)
+							return;
+					}
+				}
+			}
+
+			table[0][0] = start;
+			table[height-1][width-1] = goal;
+			
+			draw(); //show correct colors
+		}
+
+		draw = () => {
+			for(var i = 0; i < table.length; i++) {
+				for(var j = 0; j < table[i].length; j++) {
+					var temp = document.getElementById("cell"+j+","+i);
+					temp.setAttribute("class", table[i][j].val==0 ? "whitebox" : (table[i][j].val==1 ? "greenbox" : (table[i][j].val==2 ? "redbox" : "blackbox")));
+					temp.innerHTML = "";
+				}
+			}
+
+			if(path != null) {
+				for(var i = 0; i < path.length; i++) {
+					var temp = document.getElementById("cell"+path[i].x+","+path[i].y);
+					temp.setAttribute("class", "bluebox");
+					temp.innerHTML = i;
+				}
+			}
+		}
+
+		getNeighbors = (x,y) => {
+			var temp;
+			if(diag) {
+				temp = [
+					{x:x-1, y:y-1}, {x:x, y:y-1}, {x:x+1, y:y-1},
+					{x:x-1, y:y  },               {x:x+1, y:y},
+					{x:x-1, y:y+1}, {x:x, y:y+1}, {x:x+1, y:y+1}
+				];
+			} else {
+				temp = [
+					                {x:x, y:y-1},
+					{x:x-1, y:y  },               {x:x+1, y:y},
+					                {x:x, y:y+1},
+				];
+			}
+
+			for(var i = temp.length-1; i >= 0; i--) {
+				if(temp[i].x < 0 || temp[i].y < 0 || temp[i].x >= width || temp[i].y >= height)
+					temp.splice(i,1);
+			}
+
+			return temp;
+		}
+
+		pathstep = () => {
+			if(openset.length == 0) {
+				nopath = true;
+				return;
+			}
+
+			var e = openset.shift();
+			var n = getNeighbors(e.x, e.y);
+			var t = document.getElementById("cell"+e.x+","+e.y);
+			t.setAttribute("class", "bluebox");
+
+			if(e.x == goal.x && e.y == goal.y) {
+				path = [e];
+				var temp = cameFrom[e.y][e.x];
+				while(temp.x != start.x || temp.y != start.y) {
+					path.push(temp);
+					temp = cameFrom[temp.y][temp.x];
+				}
+				path.push(start);
+				path = path.reverse();
+				return;
+			}
+
+			for(var i = n.length-1; i >= 0; i--) {
+				if(hasVec(closedset, n[i]) || isWall(n[i])) {
+					if(table[n[i].y][n[i].x].h2 > e.h2+2 || table[n[i].y][n[i].x].h2 == undefined) {
+						table[n[i].y][n[i].x].h2 = e.h2+2;
+						cameFrom[n[i].y][n[i].x] = {x:e.x, y:e.y};
+					}
+					//n.splice(i,1);
+				} else {
+					table[n[i].y][n[i].x].h2 = e.h2+2;
+					table[n[i].y][n[i].x].val = 1;
+					cameFrom[n[i].y][n[i].x] = {x:e.x, y:e.y};
+					openset.push(table[n[i].y][n[i].x]);
+				}
+			}
+
+			closedset[e.y][e.x]=e;
+			table[e.y][e.x].val = 2;
+			openset = openset.sort(vecsort);
+		}
+
+		pathfind = () => {
+			while(path == null && !nopath) {
+				pathstep();
+			}
+			draw();
+		}
+
+		animatePathfind = () => {
+			if(timer == null && path == null && !nopath) {
+				timer = setInterval(()=>{pathstep(); draw(); if(path != null || nopath) clearInterval(timer)}, 50);
+			}
+		}
+
+		setup();
+	</script>
+</body>
+</html>

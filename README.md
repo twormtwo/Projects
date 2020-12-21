@@ -1,2 +1,4 @@
 # Projects
-Personal projects I've worked on in the past
+Projects I've worked on in the past
+
+Accessible at https://twormtwo.com/projects
